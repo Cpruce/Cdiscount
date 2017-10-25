@@ -12,7 +12,6 @@ from net.rates import *
 
 from net.dataset.product import *
 
-#from net.model.pyramidnet import PyNet_12  as Net
 #--------------------------------------------
 #from net.model.resnet import resnet18 as Net
 #from net.model.resnet import resnet34 as Net
@@ -39,9 +38,9 @@ from net.model.resnet import resnet50 as Net
 ## global setting ################
 BASE_DIR = '/home/cory/Kaggle/Cdiscount/'
 DATA_DIR = BASE_DIR+'input/'
-OUT_DIR = BASE_DIR+'output/resnet50-pretrain-5/' 
-TRAIN_BATCH_SIZE = 140 #96
-VALID_BATCH_SIZE = 32 
+OUT_DIR = BASE_DIR+'output/resnet152-redemption/'#'output/resnet50-pretrain-7/' 
+TRAIN_BATCH_SIZE = 96#50 #96 #140 # 
+VALID_BATCH_SIZE = 32 #4 #16 #32 
 
 ##--- helper functions  -------------
 
@@ -115,8 +114,10 @@ def do_training():
     #pretrained_file = './share/project/pytorch/pretrained-models/resnet18-5c106cde.pth'
     ## ------------------------------------
 
-    initial_checkpoint = '../output/resnet50-pretrain-5/checkpoint/00000003_model.pth' 
+    initial_checkpoint = '/home/cory/Kaggle/Cdiscount/output/resnet152-redemption/checkpoint/00000011_model.pth' 
+    #'../output/resnet50-pretrain-4/checkpoint/00000007_model.pth' 
 
+    # 5 , 3
     ## ------------------------------------
 
     os.makedirs(out_dir +'/snap', exist_ok=True)
@@ -208,15 +209,16 @@ def do_training():
     #lr_steps = {0: 0.01, 1: 0.005, 2: -1} 0.47
     #lr_steps = {0: 0.01, 3: 0.005, 4: 0.001, 5: -1} 0.57
     #lr_steps = {0: 0.005, 3: 0.001, 5: 0.0005, 6: -1} # .613
-    lr_steps = {0: 0.01, 1: 0.005, 3: 0.001, 5: 0.0005, 6: 0.0001, 7: 0.00005, 8: -1} # .64
+    #lr_steps = {0: 0.01, 1: 0.005, 3: 0.001, 5: 0.0005, 6: 0.0001, 7: 0.00005, 8: -1} # .64
     #lr_steps = {0: 0.01, 1: 0.005, 4: 0.001, 7: 0.0005, 9: 0.0001, 10: 0.00005, 11: 0.000001, 12: -1} 
+    lr_steps = {11: 0.00001, 13: 0.000005, 15: 0.0000005, 16: -1} 
     # hijack session!
     #lr_steps = {0: 0.01, 1: 0.005, 3: 0.001, 5: 0.0005, 6: 0.0001, 7: 0.0005, 9:  0.00005, 10: -1}
 
     LR = StepLR(steps=list(lr_steps.keys()), \
                 rates=list(lr_steps.values()))
  
-    num_epoches = 13 #8 #7 #6 #2 
+    num_epoches = 17 #8 #7 #6 #2 
     it_print    = 10 
     epoch_valid  = 1
     epoch_save  = 2 #8 #5

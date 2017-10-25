@@ -4,7 +4,7 @@ import os
 os.environ['HOME'] = './' #'/root'
 #os.environ['PYTHONUNBUFFERED'] = '1'
 
-SIZE = 160 #180
+SIZE = 180
 BASE_DIR = '/home/cory/Kaggle/Cdiscount/'
 DATA_DIR = BASE_DIR+'input/data/'
 OUT_DIR = BASE_DIR+'resnet50-pretrain/' #'/densenet201-pretrain-288/' 
@@ -99,7 +99,6 @@ def evaluate( net, test_loader ):
     assert(test_num == test_loader.dataset.num)
     test_acc  = test_acc/test_num
     test_loss = test_loss/test_num
-
     return test_loss, test_acc
 
 def evaluate_and_predict(net, test_loader, num_classes):

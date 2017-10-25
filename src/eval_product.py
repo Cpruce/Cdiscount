@@ -32,8 +32,8 @@ from net.model.resnet import resnet50 as Net
 SIZE = 180
 BASE_DIR = '/home/cory/Kaggle/Cdiscount/'
 DATA_DIR = BASE_DIR+'input/'
-OUT_DIR = BASE_DIR+'output/resnet50-pretrain-3/' 
-#inceptionv3-pretrain/' #inceptionv4-pretrain/' #resnet34-pretrain/' #densenet121/'
+OUT_DIR = '/home/cory/Kaggle/Cdiscount/output/resnet152-redemption/'
+#BASE_DIR+'output/inception-2/' #'output/resnet50-pretrain-5/' 
 BATCH_SIZE = 832 #96 #4 #18
 SET_SIZE = 1768183 
 
@@ -59,6 +59,31 @@ def predict(net, test_loader):
 
     assert(test_dataset.num==test_num)
     return predictions_arr #df
+
+def hck_predict(net, test_loader):
+    test_num  = len(test_loader.dataset)
+    scores = np.zeros((test_num,CDISCOUNT_NUM_CLASSES), np.uint8)
+    n = 0
+    start = timer()
+    for i, (images, indices) in enumerate(test_loader, 0):
+      print('\r%5d:  %10d/%d (%0.0f %%)  %0.2f min'%(i, n, test_num, 100*n/test_num,
+                       (timer() - start) / 60), end='',flush=True)
+
+      # forward
+      images = Variable(images,volatile=True).cuda(async=True)
+      logits = net(images)
+      #logits = net(images.half())  #
+      probs = F.softmax(logits)
+      probs = probs.data.cpu().numpy()*255
+
+      batch_size = len(indices)
+      scores[n:n+batch_size]=probs
+      n += batch_size
+
+    print('\n')
+    assert(n == len(test_loader.sampler) and n == test_num)
+    return scores
+    
 
 TEST_IDS_MAPPING = {}
 TEST_ID_MAP_PATH = BASE_DIR + "/test_ids.pkl"
@@ -142,6 +167,11 @@ def do_submission():
     log.write('\tbatch_size        = %d\n'%batch_size)
     log.write('\n')
 
+    #from net.model.cdiscount.inception_v3 import Inception3
+    #net = Inception3(in_shape=(3,180,180),num_classes=5270)
+    #model_file = '/home/cory/Kaggle/Cdiscount/HCK/release/trained_models/LB=0.69565_inc3_00075000_model.pth'
+    #net.load_state_dict(torch.load(model_file))
+
     ## net ----------------------------------------
     log.write('** net setting **\n')
     log.write('\tmodel_file = %s\n'%model_file)
@@ -157,66 +187,21 @@ def do_submission():
 
     assert(type(test_loader.sampler)==torch.utils.data.sampler.SequentialSampler)
     np.save(test_dir+'/results', predictions_arr)
-    sample_df = pd.read_csv(BASE_DIR+'input/data/sample_submission.csv')
-    predictions_df = pd.DataFrame(predictions_arr, columns=["category_id"])
-    predictions_df["category_id"] = predictions_df["category_id"].apply(lambda x: classes_dict[x])
-    predictions_df["_id"] = sample_df["_id"]
-    predictions_df = predictions_df.set_index(["_id"])
-    predictions_df.to_csv(test_dir+'/submit.csv')
-    print(predictions_df.head())
- 
-    # do testing here ###
-    """
-    augments = ['default', 'left-right', 'up-down', 'transpose',
-                'rotate90', 'rotate180', 'rotate270', ]
-    num_augments = len(augments)
-    num_classes  = len(test_dataset.class_names)
-    test_num     = test_dataset.num
-    test_dataset_images = test_dataset.images.copy()
-
-    all_predictions = np.zeros((num_augments+1,test_num,num_classes),np.float32)
-    for a in range(num_augments):
-        agument = augments[a]
-        log.write('** predict @ agument = %s **\n'%agument)
-
-        ## perturb here for test argumnetation  ## ----
-        test_dataset.images = change_images(test_dataset_images,agument)
-        predictions = predict( net, test_loader )
-        all_predictions[a] = predictions
-
-    # add average case ...
-    augments = augments + ['average']
-    predictions = all_predictions.sum(axis=0)/num_augments
-    all_predictions[num_augments] = predictions
-    log.write('\n')
-
-    # apply thresholds and save all
-    for a in range(num_augments+1):
-        agument = augments[a]
-        predictions = all_predictions[a]
-
-        test_dir = out_dir +'/submissions/'+ agument
-        os.makedirs(test_dir, exist_ok=True)
-
-
-        assert(type(test_loader.sampler)==torch.utils.data.sampler.SequentialSampler)
-        np.save(test_dir +'/predictions.npy',predictions)
-        write_submission_csv(test_dir + '/results.csv', predictions)
-
-    pass
-    """
+    print('Saved '+test_dir+'/results.npy')
 
 def do_submission2():
     out_dir = OUT_DIR
     test_dir = out_dir +'/submissions/'
     sample_df = pd.read_csv(BASE_DIR+'input/data/sample_submission.csv')
     predictions_arr = np.load(test_dir+'/results.npy')
+    print('loaded '+test_dir+'/results.npy')
     train_df = pd.read_csv(BASE_DIR+'input/split/train_images_split.csv')
     valid_df = pd.read_csv(BASE_DIR+'input/split/valid_images_split.csv')
     classes_df = train_df['category_id'].append(valid_df['category_id'])
     classes_df = classes_df.drop_duplicates()
     classes_dict = classes_df.to_dict()
     classes_dict = { i : classes_dict[k] for i, k in enumerate(classes_dict) }
+    #classes_dict = pickle.load('./label_to_category_id') 
     predictions_df = pd.DataFrame(predictions_arr, columns=["category_id"])
     predictions_df["category_id"] = predictions_df["category_id"].apply(lambda x: classes_dict[x])
     predictions_df["_id"] = sample_df["_id"]
@@ -226,6 +211,6 @@ def do_submission2():
 
 if __name__ == '__main__':
     print('Running eval main')
-    #do_submission()
+    do_submission()
     do_submission2() 
     print('Done!')

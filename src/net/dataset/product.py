@@ -34,9 +34,9 @@ def produce_split_dataset():
     classes_dict = classes_df.to_dict()
     classes_dict = { classes_dict[k] : i for i, k in enumerate(classes_dict) }
     train_dataset = ProductDataset(IDS_MAPPING, classes_dict, train_df, transform=[
-        #lambda x: randomShiftScaleRotate(x, u=0.75, shift_limit=16, scale_limit=0.1, rotate_limit=45),
-        #lambda x: randomFlip(x),
-        #lambda x: randomTranspose(x),
+        lambda x: randomShiftScaleRotate(x, u=0.75, shift_limit=16, scale_limit=0.1, rotate_limit=45),
+        lambda x: randomFlip(x),
+        lambda x: randomTranspose(x),
         lambda x: img_to_tensor(x),
         ], is_test=False, height=SIZE, width=SIZE) #, debug=True)
     valid_dataset = ProductDataset(IDS_MAPPING, classes_dict, valid_df, transform=[
