@@ -1,16 +1,15 @@
 from net.common import *
-from net.dataset.tool import *
 from net.utility.tool import *
 from net.rates import *
 
 from train_product import acc_measure
 from net.dataset.product import *
-
+from net.dataset.tool import *
 #from net.model.pyramidnet import PyNet_12  as Net
 #--------------------------------------------
 #from net.model.resnet import resnet18 as Net
 #from net.model.resnet import resnet34 as Net
-from net.model.resnet import resnet50 as Net
+#from net.model.resnet import resnet50 as Net
 #from net.model.resnet import resnet152 as Net
 
 #from net.model.densenet import densenet121 as Net
@@ -19,7 +18,7 @@ from net.model.resnet import resnet50 as Net
 #from net.model.densenet import densenet201 as Net
 
 #from net.model.inceptionv2 import Inception2 as Net
-#from net.model.inceptionv3 import Inception3 as Net
+from net.model.inceptionv3 import Inception3 as Net
 #from net.model.inceptionv4 import Inception4 as Net
 
 
@@ -30,12 +29,15 @@ from net.model.resnet import resnet50 as Net
 
 ## global setting ################
 SIZE = 180
-BASE_DIR = '/home/cory/Kaggle/Cdiscount/'
+BASE_DIR = '/media/cory/bb09faa5-afbf-46eb-ad07-c0252e84e93b/Kaggle/Cdiscount/' 
+#'/home/cory/Kaggle/Cdiscount/'
 DATA_DIR = BASE_DIR+'input/'
-OUT_DIR = '/home/cory/Kaggle/Cdiscount/output/resnet152-redemption/'
+OUT_DIR = '/media/cory/bb09faa5-afbf-46eb-ad07-c0252e84e93b/Kaggle/Cdiscount/output/resnet50-redemption' #inception-redemption/'
+#'/home/cory/Kaggle/Cdiscount/output/inception-redemption'
+#resnet152-redemption/'
 #BASE_DIR+'output/inception-2/' #'output/resnet50-pretrain-5/' 
-BATCH_SIZE = 832 #96 #4 #18
-SET_SIZE = 1768183 
+BATCH_SIZE = 720 #832 #700 # #4 #18
+#SET_SIZE = 1768183 
 
 ## main functions ############################################################
 def predict(net, test_loader):
@@ -48,6 +50,7 @@ def predict(net, test_loader):
     idx_id_map = list(TEST_IDS_MAPPING.keys())
     test_num  = 0
     predictions_arr = np.empty(0, dtype=np.uint8)
+    probs_arr = np.zeros((test_dataset.num,5270), np.uint8)
     for i, (images, indices) in tqdm(enumerate(test_loader, 0)):
 
         # forward
@@ -55,10 +58,16 @@ def predict(net, test_loader):
         _, predictions = torch.max(probs, 1)
 
         predictions_arr = np.concatenate((predictions_arr, predictions.data.cpu().numpy()))
-        test_num+=len(images)
-
+        start = test_num
+        test_num+=len(images) 
+        end = test_num
+        #print(255*probs)
+        probs_arr[start:end] = (255*(probs.data.cpu().numpy())).astype(np.uint8)
+        #print(probs_arr[start:end])
+        #print(probs_arr[0][40])
+        #break
     assert(test_dataset.num==test_num)
-    return predictions_arr #df
+    return predictions_arr, probs_arr
 
 def hck_predict(net, test_loader):
     test_num  = len(test_loader.dataset)
@@ -145,10 +154,13 @@ def do_submission():
     classes_dict = classes_df.to_dict()
     classes_dict = { classes_dict[k] : i for i, k in enumerate(classes_dict) }
     test_df = pd.read_csv(BASE_DIR+'input/split/test_images.csv')
-    test_dataset = ProductDataset(TEST_IDS_MAPPING, classes_dict, test_df,
+    test_dataset = TtaProductDataset(TEST_IDS_MAPPING, classes_dict, test_df,
                                     transform=[
                                          #transforms.Lambda(lambda x: cropCenter(x, height=224, width=224)),
-                                         lambda x: img_to_tensor(x),
+                                         lambda x: randomFlip(x),
+                                         lambda x: randomTranspose(x),
+                                         #lambda x: randomShiftScaleRotate
+                                         #lambda x: img_to_tensor(x),
                                     ],
                                     height=SIZE,width=SIZE,
                                     is_test=True)
@@ -180,7 +192,7 @@ def do_submission():
     net = torch.load(model_file)
     net.cuda().eval()
 
-    predictions_arr = predict( net, test_loader )
+    predictions_arr, probs_arr = predict( net, test_loader )
     test_dir = out_dir +'/submissions/'
     if not os.path.isdir(test_dir):
         os.makedirs(test_dir)
@@ -188,6 +200,8 @@ def do_submission():
     assert(type(test_loader.sampler)==torch.utils.data.sampler.SequentialSampler)
     np.save(test_dir+'/results', predictions_arr)
     print('Saved '+test_dir+'/results.npy')
+    np.save(test_dir+'/probs2', probs_arr)
+    print('Saved '+test_dir+'/probs.npy of size {}'.format(probs_arr.shape))
 
 def do_submission2():
     out_dir = OUT_DIR

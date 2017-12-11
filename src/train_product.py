@@ -5,17 +5,21 @@
 
 
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]='1,0'
+NUM_CUDA_DEVICES = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
+from collections import OrderedDict
+
 from net.common import *
 from net.dataset.tool import *
 from net.utility.tool import *
 from net.rates import *
 
 from net.dataset.product import *
-
 #--------------------------------------------
 #from net.model.resnet import resnet18 as Net
 #from net.model.resnet import resnet34 as Net
-from net.model.resnet import resnet50 as Net
+#from net.model.resnet import resnet50 as Net
 #from net.model.resnet import resnet152 as Net
 
 #from net.model.densenet import densenet121 as Net
@@ -24,7 +28,7 @@ from net.model.resnet import resnet50 as Net
 #from net.model.densenet import densenet201 as Net
 
 #from net.model.inceptionv2 import Inception2 as Net
-#from net.model.inceptionv3 import Inception3 as Net
+from net.model.inceptionv3 import Inception3 as Net
 #from net.model.inceptionv4 import Inception4 as Net
 
 
@@ -36,11 +40,11 @@ from net.model.resnet import resnet50 as Net
 ## max image sizes (w/batch size = 96) ###############
 
 ## global setting ################
-BASE_DIR = '/home/cory/Kaggle/Cdiscount/'
+BASE_DIR = '/media/cory/bb09faa5-afbf-46eb-ad07-c0252e84e93b/Kaggle/Cdiscount/' #'/home/cory/Kaggle/Cdiscount/'
 DATA_DIR = BASE_DIR+'input/'
-OUT_DIR = BASE_DIR+'output/resnet152-redemption/'#'output/resnet50-pretrain-7/' 
-TRAIN_BATCH_SIZE = 96#50 #96 #140 # 
-VALID_BATCH_SIZE = 32 #4 #16 #32 
+OUT_DIR = BASE_DIR+'output/inception-redemption' #resnet50-redemption/'#'output/resnet50-pretrain-7/' 
+TRAIN_BATCH_SIZE = 390 #256 #440 #256 #455 #140 #160 #96#50 #96 #140 # 
+VALID_BATCH_SIZE = 80 #160 #50 #32 #4 #16 #32 
 
 ##--- helper functions  -------------
 
@@ -98,9 +102,9 @@ def do_training():
     pretrained_file = None 
 
     
-    pretrained_file = './share/project/pytorch/pretrained-models/resnet50-19c8e357.pth'
+    #pretrained_file = './share/project/pytorch/pretrained-models/resnet50-19c8e357.pth'
     #pretrained_file = './share/project/pytorch/pretrained-models/densenet161-17b70270.pth'
-    #pretrained_file = './share/project/pytorch/pretrained-models/inception_v3_google-1a9a5a14.pth'
+    pretrained_file = './share/project/pytorch/pretrained-models/inception_v3_google-1a9a5a14.pth'
     #pretrained_file = './share/project/pytorch/pretrained-models/resnet152-b121ed2d.pth'
     
     #pretrained_file = './share/project/pytorch/pretrained-models/densenet121-241335ed.pth'
@@ -114,7 +118,11 @@ def do_training():
     #pretrained_file = './share/project/pytorch/pretrained-models/resnet18-5c106cde.pth'
     ## ------------------------------------
 
-    initial_checkpoint = '/home/cory/Kaggle/Cdiscount/output/resnet152-redemption/checkpoint/00000011_model.pth' 
+    #initial_checkpoint = '/home/cory/Kaggle/Cdiscount/output/resnet50-redemption/checkpoint/00000033_model.pth'
+    initial_checkpoint = '/media/cory/bb09faa5-afbf-46eb-ad07-c0252e84e93b/Kaggle/Cdiscount/output/inception-redemption/checkpoint/00000023_model.pth'
+
+    #00000023_model.pth'
+    #00000019_model.pth' 
     #'../output/resnet50-pretrain-4/checkpoint/00000007_model.pth' 
 
     # 5 , 3
@@ -171,6 +179,7 @@ def do_training():
     ## net ----------------------------------------
     log.write('** net setting **\n')
     net = Net(in_shape = (in_channels, height, width), num_classes=int(num_classes))
+
     #, pretrained=True)
 
     net.cuda()
@@ -190,13 +199,14 @@ def do_training():
     start_epoch=0
     
     if initial_checkpoint is not None:
-        net.load_state_dict(torch.load(initial_checkpoint))
-
+        loaded_checkpoint = torch.load(initial_checkpoint)
+        new_checkpoint = OrderedDict()
+        for key in loaded_checkpoint:
+            new_checkpoint[key.replace('module.', '')] = loaded_checkpoint[key]
+        net.load_state_dict(new_checkpoint)
         checkpoint = torch.load(initial_checkpoint.replace('_model.pth','_optimizer.pth'))
         start_epoch = checkpoint['iter']+1
         optimizer.load_state_dict(checkpoint['optimizer'])
-        #adjust_momentum(optimizer, momentum)
-        #print('momentum adjusted to {}'.format(get_momentum(optimizer)))
     elif pretrained_file is not None:  #pretrain
         skip_list = ['fc.weight', 'fc.bias']
         load_valid(net, pretrained_file, skip_list=skip_list)
@@ -209,26 +219,34 @@ def do_training():
     #lr_steps = {0: 0.01, 1: 0.005, 2: -1} 0.47
     #lr_steps = {0: 0.01, 3: 0.005, 4: 0.001, 5: -1} 0.57
     #lr_steps = {0: 0.005, 3: 0.001, 5: 0.0005, 6: -1} # .613
-    #lr_steps = {0: 0.01, 1: 0.005, 3: 0.001, 5: 0.0005, 6: 0.0001, 7: 0.00005, 8: -1} # .64
+    #lr_steps = {10: 0.001, 13: 0.0005, 15: 0.0001, 16: 0.00005, 17: -1}
+    lr_steps = {23: 0.0005, 24: 0.0001, 25: 0.00005, 28: 0.00001, 30: 0.000005, 31: -1}
+    
+    #lr_steps = {0: 0.01, 5: 0.005, 8: 0.0005, 10: 0.00005, 11: 0.00001, 12: -1} # .64
     #lr_steps = {0: 0.01, 1: 0.005, 4: 0.001, 7: 0.0005, 9: 0.0001, 10: 0.00005, 11: 0.000001, 12: -1} 
-    lr_steps = {11: 0.00001, 13: 0.000005, 15: 0.0000005, 16: -1} 
+    #lr_steps = {15: 0.00009, 17: 0.000009, 19: 0.0000009, 20: -1} 
+    #lr_steps = {19: 0.0001, 23: 0.00005, 26: 0.000005, 27: -1}
+    #lr_steps = {24: 0.00005, 31: 0.000005, 33: 0.000005, 34: -1} 
+    #lr_steps = {33: 0.00005, 35: 0.00001, 37: 0.000005, 38: 0.000001, 39: -1} 
     # hijack session!
     #lr_steps = {0: 0.01, 1: 0.005, 3: 0.001, 5: 0.0005, 6: 0.0001, 7: 0.0005, 9:  0.00005, 10: -1}
 
     LR = StepLR(steps=list(lr_steps.keys()), \
                 rates=list(lr_steps.values()))
  
-    num_epoches = 17 #8 #7 #6 #2 
+    num_epoches = 42 #21 #17 #8 #7 #6 #2 
     it_print    = 10 
     epoch_valid  = 1
     epoch_save  = 2 #8 #5
-
+    num_its = len(train_loader)
+  
     ## start training here! ##############################################3
     ## start training here! ##############################################3
     log.write('** start training here! **\n')
 
     log.write(' optimizer=%s\n'%str(optimizer) )
     log.write(' LR=%s\n\n'%str(LR) )
+    log.write(' num its={}\n'.format(num_its))
     log.write(' epoch   iter   rate  |  smooth_loss   |  train_loss  (acc)  |  valid_loss  (acc)  | min\n')
     log.write('----------------------------------------------------------------------------------------\n')
 
@@ -238,7 +256,8 @@ def do_training():
     valid_loss   = np.nan
     valid_acc    = np.nan
     time = 0
-
+    if NUM_CUDA_DEVICES > 1:
+        net = torch.nn.DataParallel(net)
     start0 = timer()
     for epoch in range(start_epoch, num_epoches):  # loop over the dataset multiple times
         #print ('epoch=%d'%epoch)
@@ -255,7 +274,6 @@ def do_training():
         sum_smooth_loss = 0.0
         sum = 0
         net.cuda().train()
-        num_its = len(train_loader)
         for it, (images, labels, indices) in enumerate(train_loader, 0):
             #log.write("batch {}x training with size of {}\n".format(it, batch_size))
             logits, probs = net(Variable(images.cuda()))
@@ -308,14 +326,7 @@ def do_training():
                 'optimizer' : optimizer.state_dict(),
                 'iter'      : epoch,
             }, out_dir +'/checkpoint/%08d_optimizer.pth'%(epoch))
-            #torch.save(net, out_dir +'/snap/%03d.torch'%(epoch+1))
-            #torch.save({
-            #    'state_dict': net.state_dict(),
-            #    'optimizer' : optimizer.state_dict(),
-            #    'epoch'     : epoch,
-            #}, out_dir +'/checkpoint/%03d.pth'%(epoch+1))
             ## https://github.com/pytorch/examples/blob/master/imagenet/main.py
-
 
 
 
